@@ -62,8 +62,41 @@ namespace LaundryApplication.Controllers
             {
                 return NotFound("Service not found.");
             }
-
             return Ok(service);
+        }
+
+        // GET: api/Admin/Orders
+        [HttpGet("Orders")]
+        public async Task<ActionResult<IEnumerable<Order>>> GetAllOrders()
+        {
+            // Retrieve all orders with their related service details
+            var orders = await _context.Orders
+                .Include(o => o.Service)  // Include service details in the order
+                .ToListAsync();
+
+            if (orders == null || orders.Count == 0)
+            {
+                return NotFound("No orders found.");
+            }
+
+            return Ok(orders);
+        }
+        // PUT: api/Admin/Orders/{id}/Status
+        [HttpPut("Orders/{id}/Status")]
+        public async Task<ActionResult> UpdateOrderStatus(Guid id, [FromBody] OrderStatus status)
+        {
+            var order = await _context.Orders.FindAsync(id);
+            if (order == null)
+            {
+                return NotFound($"Order with ID {id} not found.");
+            }
+
+            // Update the order status
+            order.Status = status;
+            _context.Entry(order).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
+
+            return NoContent();  // Status 204 - Successfully updated, no content to return
         }
     }
 }
