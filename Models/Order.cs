@@ -15,7 +15,6 @@
             public Guid Id { get; set; }
             public Guid CustomerId { get; set; } // Link the order to a customer
             public Guid ServiceId { get; set; }
-            public Service Service { get; set; }
             public int Quantity { get; set; }
             public DateTime ExpectedDeliveryDate { get; set; }
             public string AdditionalDescription { get; set; }

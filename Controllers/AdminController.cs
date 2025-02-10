@@ -71,7 +71,6 @@ namespace LaundryApplication.Controllers
         {
             // Retrieve all orders with their related service details
             var orders = await _context.Orders
-                .Include(o => o.Service)  // Include service details in the order
                 .ToListAsync();
 
             if (orders == null || orders.Count == 0)

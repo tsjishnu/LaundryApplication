@@ -54,7 +54,7 @@ namespace LaundryApplication.Controllers
             [Authorize]  // Ensure that the user is authenticated
             public async Task<ActionResult<Order>> PlaceOrder([FromBody] Order orderRequest)
             {
-                if (orderRequest == null || orderRequest.ServiceId == Guid.Empty || orderRequest.Quantity <= 0 || orderRequest.ExpectedDeliveryDate == DateTime.MinValue)
+                if (orderRequest == null || orderRequest.ServiceId == Guid.Empty || orderRequest.Quantity <= 0 || orderRequest.ExpectedDeliveryDate < DateTime.Now)
                 {
                     return BadRequest("Service ID, quantity, expected delivery date, and additional description are required.");
                 }
@@ -90,7 +90,6 @@ namespace LaundryApplication.Controllers
                 // Retrieve the order with the given ID and ensure the order belongs to the logged-in customer
                 var order = await _context.Orders
                     .Where(o => o.CustomerId == customerId)
-                    .Include(o => o.Service)  // Optionally include service details
                     .FirstOrDefaultAsync(o => o.Id == id);
 
                 if (order == null)
@@ -109,7 +108,6 @@ namespace LaundryApplication.Controllers
 
                 var orders = await _context.Orders
                     .Where(o => o.CustomerId == customerId)  // Ensure that the customer only sees their own orders
-                    .Include(o => o.Service)  // Optionally include service details if needed
                     .ToListAsync();
 
                 if (orders == null || orders.Count == 0)
@@ -130,7 +128,6 @@ namespace LaundryApplication.Controllers
                 // Ensure the customer only sees their own orders
                 var order = await _context.Orders
                     .Where(o => o.CustomerId == customerId)
-                    .Include(o => o.Service)  // Optionally include service details
                     .FirstOrDefaultAsync(o => o.Id == id);
 
                 if (order == null)
@@ -165,7 +162,6 @@ namespace LaundryApplication.Controllers
                 // Update the order status to "Cancelled"
                 order.Status = OrderStatus.Cancelled;
                 await _context.SaveChangesAsync();
-
                 return Ok(new { message = "Order successfully cancelled." });
             }
             [HttpPut("Orders/{id}")]
