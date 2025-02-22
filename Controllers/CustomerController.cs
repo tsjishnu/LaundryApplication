@@ -51,7 +51,7 @@ namespace LaundryApplication.Controllers
 
             // POST: api/Customer/PlaceOrder
             [HttpPost("PlaceOrder")]
-            [Authorize]  // Ensure that the user is authenticated
+            //[Authorize]  // Ensure that the user is authenticated
             public async Task<ActionResult<Order>> PlaceOrder([FromBody] Order orderRequest)
             {
                 if (orderRequest == null || orderRequest.ServiceId == Guid.Empty || orderRequest.Quantity <= 0 || orderRequest.ExpectedDeliveryDate < DateTime.Now)
@@ -82,7 +82,7 @@ namespace LaundryApplication.Controllers
 
             // GET: api/Customer/Orders/{id}/Status
             [HttpGet("Orders/{id}/Status")]
-            [Authorize]  // Ensure that the user is authenticated
+            //[Authorize]  // Ensure that the user is authenticated
             public async Task<ActionResult> GetOrderStatus(Guid id)
             {
                 var customerId = GetCustomerIdFromUser(); // This should be your actual method to get the authenticated user's CustomerId
@@ -99,27 +99,44 @@ namespace LaundryApplication.Controllers
                 return Ok(new { OrderId = order.Id, Status = order.Status });
             }
 
-            // GET: api/Customer/Orders
-            [HttpGet("Orders")]
-            [Authorize]  // Ensure that the user is authenticated
-            public async Task<ActionResult<IEnumerable<Order>>> GetOrdersForCustomer()
+        // GET: api/Customer/Orders
+        [HttpGet("Orders")]
+        public async Task<ActionResult<IEnumerable<GetOrdersDTO>>> GetOrdersForCustomer()
+        {
+            var customerId = GetCustomerIdFromUser();
+
+            var orders = await _context.Orders
+                .Where(o => o.CustomerId == customerId)
+                .Join(_context.Services,
+                    order => order.ServiceId,
+                    service => service.Id,
+                    (order, service) => new GetOrdersDTO
+                    {
+                        Id = order.Id,
+                        CustomerId = order.CustomerId,
+                        ServiceId = order.ServiceId,
+                        ServiceName = service.ServiceName,
+                        MaterialType = service.MaterialType,
+                        Price = service.Price,
+                        Quantity = order.Quantity,
+                        ExpectedDeliveryDate = order.ExpectedDeliveryDate,
+                        AdditionalDescription = order.AdditionalDescription,
+                        Status = order.Status,
+                        DateCreated = order.DateCreated
+                    })
+                .ToListAsync();
+
+            if (orders == null || !orders.Any())
             {
-                var customerId = GetCustomerIdFromUser(); // Get the logged-in user's CustomerId
-
-                var orders = await _context.Orders
-                    .Where(o => o.CustomerId == customerId)  // Ensure that the customer only sees their own orders
-                    .ToListAsync();
-
-                if (orders == null || orders.Count == 0)
-                {
-                    return NotFound("No orders found for this customer.");
-                }
-
-                return Ok(orders);
+                return NotFound("No orders found for this customer.");
             }
 
-            // GET: api/Customer/Orders/{id}
-            [HttpGet("Orders/{id}")]
+            return Ok(orders);
+        }
+
+
+        // GET: api/Customer/Orders/{id}
+        [HttpGet("Orders/{id}")]
             [Authorize]  // Ensure that the user is authenticated
             public async Task<ActionResult<Order>> GetOrderById(Guid id)
             {

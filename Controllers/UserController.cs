@@ -121,6 +121,51 @@ namespace LaundryApplication.Controllers
 
             return storedHash == hashedEnteredPassword;
         }
+        // PATCH: api/User/UpdateAddress
+        [HttpPatch("UpdateAddress")]
+        public async Task<IActionResult> UpdateAddress([FromBody] UpdateAddressDTO addressUpdate)
+        {
+            if (string.IsNullOrWhiteSpace(addressUpdate.NewAddress))
+            {
+                return BadRequest("Address cannot be empty.");
+            }
+
+            try
+            {
+                Guid customerId = GetCustomerIdFromUser(); // Fetch Customer ID from headers
+
+                var user = await _context.Users.FindAsync(customerId);
+                if (user == null)
+                {
+                    return NotFound("User not found.");
+                }
+
+                user.Address = addressUpdate.NewAddress;
+                await _context.SaveChangesAsync();
+
+                return Ok(new { message = "Address updated successfully." });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(ex.Message);
+            }
+        }
+
+
+
+
+        private Guid GetCustomerIdFromUser()
+        {
+            // Get the CustomerId from the request header (set by frontend)
+            var customerIdString = Request.Headers["CustomerId"].FirstOrDefault();
+
+            if (!string.IsNullOrEmpty(customerIdString) && Guid.TryParse(customerIdString, out Guid customerId))
+            {
+                return customerId;
+            }
+
+            throw new UnauthorizedAccessException("Customer ID not found in the request header.");
+        }
     }
 }
 

@@ -64,22 +64,104 @@ namespace LaundryApplication.Controllers
             }
             return Ok(service);
         }
+        // PUT: api/Admin/Services/{id}
+        [HttpPut("Services/{id}")]
+        public async Task<ActionResult<Service>> UpdateService(Guid id, [FromBody] Service updatedService)
+        {
+            if (updatedService == null || string.IsNullOrEmpty(updatedService.ServiceName) ||
+                string.IsNullOrEmpty(updatedService.MaterialType) || updatedService.Price <= 0)
+            {
+                return BadRequest("Service name, material type, and price are required.");
+            }
+
+            var existingService = await _context.Services.FindAsync(id);
+            if (existingService == null)
+            {
+                return NotFound($"Service with ID {id} not found.");
+            }
+
+            // Check if any order exists for this service
+            bool orderExists = await _context.Orders.AnyAsync(o => o.ServiceId == id);
+            if (orderExists)
+            {
+                return Conflict("Cannot update service because orders exist for this service.");
+            }
+
+            // Check if another service with the same name & material type already exists
+            var duplicateService = await _context.Services
+                .FirstOrDefaultAsync(s => s.ServiceName == updatedService.ServiceName
+                                       && s.MaterialType == updatedService.MaterialType
+                                       && s.Id != id);
+            if (duplicateService != null)
+            {
+                return Conflict("A service with the same name and material type already exists.");
+            }
+
+            // Update properties
+            existingService.ServiceName = updatedService.ServiceName;
+            existingService.MaterialType = updatedService.MaterialType;
+            existingService.Price = updatedService.Price;
+
+            _context.Entry(existingService).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
+
+            return Ok(existingService);
+        }
+        // DELETE: api/Admin/Services/{id}
+        [HttpDelete("Services/{id}")]
+        public async Task<IActionResult> DeleteService(Guid id)
+        {
+            var service = await _context.Services.FindAsync(id);
+            if (service == null)
+            {
+                return NotFound($"Service with ID {id} not found.");
+            }
+
+            // Check if any order exists for this service
+            bool orderExists = await _context.Orders.AnyAsync(o => o.ServiceId == id);
+            if (orderExists)
+            {
+                return Conflict("Cannot delete service because orders exist for this service.");
+            }
+
+            _context.Services.Remove(service);
+            await _context.SaveChangesAsync();
+
+            return NoContent(); // 204 - Successfully deleted, no content to return
+        }
 
         // GET: api/Admin/Orders
         [HttpGet("Orders")]
-        public async Task<ActionResult<IEnumerable<Order>>> GetAllOrders()
+        public async Task<ActionResult<IEnumerable<GetOrdersDTO>>> GetAllOrders()
         {
-            // Retrieve all orders with their related service details
             var orders = await _context.Orders
+                .Join(_context.Services,
+                    order => order.ServiceId,
+                    service => service.Id,
+                    (order, service) => new GetOrdersDTO
+                    {
+                        Id = order.Id,
+                        CustomerId = order.CustomerId,
+                        ServiceId = order.ServiceId,
+                        ServiceName = service.ServiceName,
+                        MaterialType = service.MaterialType,
+                        Price = service.Price,
+                        Quantity = order.Quantity,
+                        ExpectedDeliveryDate = order.ExpectedDeliveryDate,
+                        AdditionalDescription = order.AdditionalDescription,
+                        Status = order.Status,
+                        DateCreated = order.DateCreated
+                    })
                 .ToListAsync();
 
-            if (orders == null || orders.Count == 0)
+            if (orders == null || !orders.Any())
             {
                 return NotFound("No orders found.");
             }
 
             return Ok(orders);
         }
+
         // PUT: api/Admin/Orders/{id}/Status
         [HttpPut("Orders/{id}/Status")]
         public async Task<ActionResult> UpdateOrderStatus(Guid id, [FromBody] OrderStatus status)
